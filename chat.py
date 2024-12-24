@@ -11,6 +11,8 @@ from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, 
                             QWidget, QTextEdit, QLineEdit, QLabel, QMessageBox,
                             QProgressBar, QStatusBar)
+from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtGui import QPalette, QColor, QScreen
 from PyQt5.QtCore import QTimer
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
@@ -24,6 +26,12 @@ class ChatWindow(QMainWindow):
         self.setWindowTitle("AI Chat & WordPress Publisher")
         self.setGeometry(100, 100, 800, 600)
         
+        # Dark Mode
+        self.setup_dark_mode()
+        
+        # Positioniere auf 2. Bildschirm
+        self.position_on_second_screen()
+        
         # Initialisiere Statusvariablen
         self.is_processing = False
         self.last_question = None
@@ -32,41 +40,156 @@ class ChatWindow(QMainWindow):
         self.setup_ui()
         self.load_config()
 
+    def setup_dark_mode(self):
+        """Konfiguriert Dark Mode für die Anwendung"""
+        palette = QPalette()
+        
+        # Setze Farben für Dark Mode
+        palette.setColor(QPalette.Window, QColor(53, 53, 53))
+        palette.setColor(QPalette.WindowText, Qt.white)
+        palette.setColor(QPalette.Base, QColor(35, 35, 35))
+        palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+        palette.setColor(QPalette.ToolTipBase, QColor(25, 25, 25))
+        palette.setColor(QPalette.ToolTipText, Qt.white)
+        palette.setColor(QPalette.Text, Qt.white)
+        palette.setColor(QPalette.Button, QColor(53, 53, 53))
+        palette.setColor(QPalette.ButtonText, Qt.white)
+        palette.setColor(QPalette.BrightText, Qt.red)
+        palette.setColor(QPalette.Link, QColor(42, 130, 218))
+        palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+        palette.setColor(QPalette.HighlightedText, Qt.black)
+        
+        self.setPalette(palette)
+
+    def position_on_second_screen(self):
+        """Positioniert das Fenster auf dem zweiten Bildschirm (rechter Bildschirm)"""
+        screens = QApplication.screens()
+        
+        # Debug-Ausgabe der verfügbaren Bildschirme
+        print(f"Verfügbare Bildschirme: {len(screens)}")
+        for i, screen in enumerate(screens):
+            geometry = screen.geometry()
+            print(f"Bildschirm {i}: Geometrie = x:{geometry.x()}, y:{geometry.y()}, "
+                  f"Breite:{geometry.width()}, Höhe:{geometry.height()}")
+
+        # Finde den Bildschirm mit x > 1920 (rechter Bildschirm)
+        right_screen = None
+        for screen in screens:
+            if screen.geometry().x() > 1920:
+                right_screen = screen
+                break
+        
+        if right_screen:
+            print("Rechter Bildschirm gefunden")
+            screen_geometry = right_screen.geometry()
+            
+            # Setze die Fensterposition auf den rechten Bildschirm
+            self.setGeometry(
+                screen_geometry.x() + (screen_geometry.width() - 800) // 2,  # zentriert
+                screen_geometry.y() + (screen_geometry.height() - 600) // 2,  # zentriert
+                800,  # Fensterbreite
+                600   # Fensterhöhe
+            )
+        else:
+            print("Kein rechter Bildschirm gefunden, verwende Hauptbildschirm")
+            # Fallback auf den Hauptbildschirm
+            primary_screen = QApplication.primaryScreen()
+            screen_geometry = primary_screen.geometry()
+            frame_geometry = self.frameGeometry()
+            center_point = screen_geometry.center()
+            frame_geometry.moveCenter(center_point)
+            self.move(frame_geometry.topLeft())
+
     def setup_ui(self):
         # Hauptwidget und Layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
         
-        # Status Bar
+        # Status Bar mit dunklem Hintergrund
         self.status_bar = QStatusBar()
+        self.status_bar.setStyleSheet("QStatusBar { background-color: #353535; color: white; }")
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Bereit")
         
-        # Progress Bar
+        # Progress Bar mit dunklem Style
         self.progress = QProgressBar()
+        self.progress.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid grey;
+                border-radius: 5px;
+                text-align: center;
+                background-color: #353535;
+            }
+            QProgressBar::chunk {
+                background-color: #2A82DA;
+            }
+        """)
         self.progress.setVisible(False)
         layout.addWidget(self.progress)
         
-        # Chat Eingabe
+        # Chat Eingabe mit dunklem Style
         self.chat_input = QLineEdit()
+        self.chat_input.setStyleSheet("""
+            QLineEdit {
+                padding: 5px;
+                border: 2px solid #555;
+                border-radius: 5px;
+                background-color: #252525;
+                color: white;
+            }
+            QLineEdit:focus {
+                border-color: #2A82DA;
+            }
+        """)
         self.chat_input.setPlaceholderText("Stelle deine Frage...")
         self.chat_input.returnPressed.connect(self.handle_chat)
         layout.addWidget(self.chat_input)
         
-        # Antwort Anzeige
+        # Antwort Anzeige mit dunklem Style
         self.response_display = QTextEdit()
+        self.response_display.setStyleSheet("""
+            QTextEdit {
+                background-color: #252525;
+                color: white;
+                border: 2px solid #555;
+                border-radius: 5px;
+            }
+        """)
         self.response_display.setReadOnly(True)
         layout.addWidget(self.response_display)
         
-        # Buttons
+        # Buttons mit dunklem Style
+        button_style = """
+            QPushButton {
+                background-color: #2A82DA;
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 5px;
+                min-height: 30px;
+            }
+            QPushButton:hover {
+                background-color: #3292EA;
+            }
+            QPushButton:pressed {
+                background-color: #1A72CA;
+            }
+            QPushButton:disabled {
+                background-color: #555;
+                color: #888;
+            }
+        """
+        
         self.send_button = QPushButton("Frage senden")
+        self.send_button.setStyleSheet(button_style)
         self.send_button.clicked.connect(self.handle_chat)
         layout.addWidget(self.send_button)
         
         self.post_button = QPushButton("Als WordPress Post veröffentlichen")
+        self.post_button.setStyleSheet(button_style)
         self.post_button.clicked.connect(self.create_post)
-        self.post_button.setEnabled(False)  # Erst aktivieren, wenn Antwort vorliegt
+        self.post_button.setEnabled(False)
         layout.addWidget(self.post_button)
 
     def load_config(self):
