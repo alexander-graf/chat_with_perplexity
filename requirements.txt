@@ -1,2 +1,5 @@
 numpy
 PyQt5
+python-wordpress-xmlrpc
+markdown 
+requests
